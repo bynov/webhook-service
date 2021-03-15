@@ -33,6 +33,7 @@ func New(webhookRepo WebhookRepo, maxDataBeforeFlush int) *Batch {
 	}
 }
 
+// Add adds one or several webhooks to batch.
 func (b *Batch) Add(ctx context.Context, webhook ...domain.Webhook) error {
 	b.dataMutex.Lock()
 	defer b.dataMutex.Unlock()
@@ -48,6 +49,7 @@ func (b *Batch) Add(ctx context.Context, webhook ...domain.Webhook) error {
 	return nil
 }
 
+// Start must be called in separate goroutene. It starts the ticker for flusher.
 func (b *Batch) Start(flushInterval time.Duration) {
 	for range time.NewTicker(flushInterval).C {
 		if err := b.Flush(); err != nil {

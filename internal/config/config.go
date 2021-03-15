@@ -26,6 +26,7 @@ func (c Config) IsMaster() bool {
 	return c.Mode == ModeMaster
 }
 
+// Parse is a simple function that parses config from envs.
 func Parse() (*Config, error) {
 	var cfg = &Config{
 		Mode:         os.Getenv(envKeyMode),

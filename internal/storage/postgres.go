@@ -24,6 +24,8 @@ func NewRepository(pool *pgxpool.Pool) PostgresRepository {
 	return PostgresRepository{pool: pool}
 }
 
+// SaveBatch is used to save webhooks in batch request.
+// It could seems a bit strange but it more faster than pg.Batch{}.
 func (p PostgresRepository) SaveBatch(ctx context.Context, webhooks []domain.Webhook) error {
 	batch := toWebhookBatch(webhooks)
 
@@ -49,6 +51,7 @@ func (p PostgresRepository) SaveBatch(ctx context.Context, webhooks []domain.Web
 	return nil
 }
 
+// GetLiteWebhooks returns list of webhooks without full payload. Hahs provided instead.
 func (p PostgresRepository) GetLiteWebhooks(ctx context.Context, from, to time.Time) ([]domain.Webhook, error) {
 	rows, err := p.pool.Query(
 		ctx,
@@ -87,6 +90,7 @@ func (p PostgresRepository) GetLiteWebhooks(ctx context.Context, from, to time.T
 	return out, nil
 }
 
+// GetWebhooksByIDs returns list of full webhooks by ids.
 func (p PostgresRepository) GetWebhooksByIDs(ctx context.Context, ids []string) ([]domain.Webhook, error) {
 	rows, err := p.pool.Query(
 		ctx,

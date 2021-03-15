@@ -2,21 +2,23 @@ package main
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/bynov/webhook-service/internal/batch"
+
 	"github.com/bynov/webhook-service/internal/config"
-	"github.com/bynov/webhook-service/internal/domain"
+	"github.com/bynov/webhook-service/internal/handler"
 	"github.com/bynov/webhook-service/internal/migration"
 	"github.com/bynov/webhook-service/internal/storage"
+	"github.com/bynov/webhook-service/internal/synchronizer"
 	"github.com/bynov/webhook-service/internal/usecase"
 )
 
@@ -38,51 +40,62 @@ func main() {
 
 	repo := storage.NewRepository(pool)
 
-	batchProvder := batch.New(repo, time.Second*10, 2000)
+	batchProvder := batch.New(repo, 2000)
 
-	uCase := usecase.NewUsecase(batchProvder, time.Second*5)
+	uCase := usecase.NewUsecase(batchProvder, repo, time.Second*5)
 
 	r := chi.NewRouter()
 
-	r.Post("/webhooks", addWebhook(uCase))
+	r.Post("/webhooks", handler.AddWebhook(uCase))
+
+	if !cfg.IsMaster() {
+		r.Get("/webhooks", handler.GetWebhooksByIDs(uCase))
+		r.Get("/webhooks/lite", handler.GetLiteWebhooks(uCase))
+	}
+
+	if cfg.IsMaster() {
+		slaveWebhookProvider := synchronizer.NewWebhookProviderFromSlave(cfg.SlaveAddr, time.Second*5)
+
+		sync := synchronizer.New(repo, slaveWebhookProvider, batchProvder)
+
+		go sync.Run(time.Minute * 2)
+
+		go func() {
+			for err := range sync.Errors() {
+				log.Printf("sync provider error: %v", err)
+			}
+		}()
+	}
 
 	server := &http.Server{
 		Addr:    ":8080",
 		Handler: r,
 	}
 
-	go batchProvder.Start()
+	go batchProvder.Start(time.Second * 10)
 
 	go func() {
 		for err := range batchProvder.Errors() {
-			log.Println(err)
+			log.Printf("batch provider error: %v", err)
 		}
 	}()
 
-	server.ListenAndServe()
-}
+	idleConnsClosed := make(chan struct{})
+	go func() {
+		gracefulStop := make(chan os.Signal, 1)
+		signal.Notify(gracefulStop, syscall.SIGINT, syscall.SIGTERM)
+		<-gracefulStop
 
-func addWebhook(usecase usecase.Usecase) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			// TODO:
-			w.Write([]byte(err.Error()))
-			return
+		if err := server.Shutdown(context.Background()); err != nil {
+			log.Println(err)
 		}
+		close(idleConnsClosed)
+	}()
 
-		h := sha1.New()
-		h.Write(payload)
+	go server.ListenAndServe()
 
-		err = usecase.AddWebhook(r.Context(), domain.Webhook{
-			Payload:     string(payload),
-			PayloadHash: hex.EncodeToString(h.Sum(nil)),
-			RecievedAt:  time.Now().UTC(),
-		})
-		if err != nil {
-			// TODO:
-			w.Write([]byte(err.Error()))
-			return
-		}
-	}
+	log.Println("HTTP server is started")
+
+	<-idleConnsClosed
+	log.Println("Service gracefully stopped")
 }

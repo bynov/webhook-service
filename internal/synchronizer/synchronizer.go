@@ -2,18 +2,19 @@ package synchronizer
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/bynov/webhook-service/internal/batch"
 	"github.com/bynov/webhook-service/internal/domain"
 )
 
+// WebhookRepository it's an internal repository with webhooks.
 type WebhookRepository interface {
 	GetLiteWebhooks(ctx context.Context, from, to time.Time) ([]domain.Webhook, error)
 	SaveBatch(ctx context.Context, webhooks []domain.Webhook) error
 }
 
+// SlaveWebhookProvider it's a provider that provides access to slave webhooks.
 type SlaveWebhookProvider interface {
 	GetLiteWebhooks(ctx context.Context, from, to time.Time) ([]domain.Webhook, error)
 	GetWebhooksByIDs(ctx context.Context, ids []string) ([]domain.Webhook, error)
@@ -37,6 +38,7 @@ func New(webhookRepo WebhookRepository, slaveWebhookProvider SlaveWebhookProvide
 	}
 }
 
+// Run should start in separate goroutine. It starts ticker and makes sync calls.
 func (s Synchronizer) Run(syncInterval time.Duration) {
 	for range time.NewTicker(syncInterval).C {
 		now := time.Now().UTC()
@@ -58,8 +60,6 @@ func (s Synchronizer) Run(syncInterval time.Duration) {
 		for _, v := range masterWebhookSlice {
 			masterWebhooks[v.PayloadHash] = append(masterWebhooks[v.PayloadHash], v.RecievedAt)
 		}
-
-		log.Printf("master webhooks: %v", masterWebhooks)
 
 		// Get webhooks from slave from [-4; -2]
 		slaveWebhooks, err := s.slaveWebhookProvider.GetLiteWebhooks(
@@ -87,9 +87,6 @@ func (s Synchronizer) Run(syncInterval time.Duration) {
 
 			// Webhook already presented - iterate over all times if not found - add it.
 			for _, tm := range masterTimes {
-				log.Println(slaveWebhooks[i].RecievedAt.Sub(tm))
-				log.Println(slaveWebhooks[i].RecievedAt.Sub(tm) <= time.Minute)
-
 				if slaveWebhooks[i].RecievedAt.Sub(tm) <= time.Minute {
 					found = true
 					break
@@ -121,6 +118,7 @@ func (s Synchronizer) Run(syncInterval time.Duration) {
 	}
 }
 
+// Errors provides read only access to error chan.
 func (s Synchronizer) Errors() <-chan error {
 	return s.errChan
 }

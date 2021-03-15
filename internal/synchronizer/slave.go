@@ -17,7 +17,7 @@ const (
 	getWebhooksByIDs = "/webhooks"
 )
 
-// TODO: naming
+// TODO: can't find better name :(
 type WebhookProviderFromSlave struct {
 	client *http.Client
 	url    string
@@ -32,6 +32,7 @@ func NewWebhookProviderFromSlave(url string, timeout time.Duration) WebhookProvi
 	}
 }
 
+// GetLiteWebhooks makes a http call to slave to get lite webhooks.
 func (w WebhookProviderFromSlave) GetLiteWebhooks(ctx context.Context, from, to time.Time) ([]domain.Webhook, error) {
 	values := url.Values{
 		"from": {strconv.FormatInt(from.UTC().Unix(), 10)},
@@ -59,6 +60,7 @@ func (w WebhookProviderFromSlave) GetLiteWebhooks(ctx context.Context, from, to 
 	return webhooks, nil
 }
 
+// GetWebhooksByIDs makes a http call to slave to get webhooks by ids.
 func (w WebhookProviderFromSlave) GetWebhooksByIDs(ctx context.Context, ids []string) ([]domain.Webhook, error) {
 	values := url.Values{
 		"ids[]": ids,

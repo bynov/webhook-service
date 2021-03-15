@@ -2,7 +2,6 @@ package migration
 
 import (
 	"errors"
-	"net/url"
 
 	"github.com/golang-migrate/migrate/v4"
 
@@ -10,14 +9,8 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
+// MigratePostgres is used to migrate postgres scheme to latest version.
 func MigratePostgres(sourceURL, databaseURL string) error {
-	u, err := url.Parse(databaseURL)
-	if err != nil {
-		return err
-	}
-
-	databaseURL = u.String()
-
 	m, err := migrate.New(sourceURL, databaseURL)
 	if err != nil {
 		return err
