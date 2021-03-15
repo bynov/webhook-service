@@ -37,7 +37,7 @@ func (p PostgresRepository) SaveBatch(ctx context.Context, webhooks []domain.Web
 			SELECT
 				unnest($1::varchar[]),
 				unnest($2::char(40)[]),
-				unnest($3::timestamp[])`,
+				unnest($3::timestamp[]);`,
 		batch.payloads,
 		batch.payloadHashes,
 		batch.recievedAt,
@@ -47,6 +47,83 @@ func (p PostgresRepository) SaveBatch(ctx context.Context, webhooks []domain.Web
 	}
 
 	return nil
+}
+
+func (p PostgresRepository) GetLiteWebhooks(ctx context.Context, from, to time.Time) ([]domain.Webhook, error) {
+	rows, err := p.pool.Query(
+		ctx,
+		`SELECT
+				id,
+				payload_hash,
+				received_at
+			FROM
+				"webhooks"
+			WHERE $1 <= received_at AND received_at < $2;`,
+		from,
+		to,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get lite webhooks: %w", err)
+	}
+
+	defer rows.Close()
+
+	var out []domain.Webhook
+
+	for rows.Next() {
+		var item domain.Webhook
+
+		if err := rows.Scan(
+			&item.ID,
+			&item.PayloadHash,
+			&item.RecievedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan in get lite webhooks: %w", err)
+		}
+
+		out = append(out, item)
+	}
+
+	return out, nil
+}
+
+func (p PostgresRepository) GetWebhooksByIDs(ctx context.Context, ids []string) ([]domain.Webhook, error) {
+	rows, err := p.pool.Query(
+		ctx,
+		`SELECT
+				id,
+				payload,
+				payload_hash,
+				received_at
+			FROM
+				"webhooks"
+			WHERE id = ANY($1);`,
+		ids,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get webhooks by ids: %w", err)
+	}
+
+	defer rows.Close()
+
+	var out []domain.Webhook
+
+	for rows.Next() {
+		var item domain.Webhook
+
+		if err := rows.Scan(
+			&item.ID,
+			&item.Payload,
+			&item.PayloadHash,
+			&item.RecievedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan in get webhooks by ids: %w", err)
+		}
+
+		out = append(out, item)
+	}
+
+	return out, nil
 }
 
 func toWebhookBatch(webhooks []domain.Webhook) webhookBatch {
