@@ -11,5 +11,6 @@ FROM debian:buster
 WORKDIR /app
 
 COPY --from=0 /app/webhook-service .
+COPY --from=0 /app/assets/ /app/assets
 
 CMD ["./webhook-service"]

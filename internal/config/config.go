@@ -35,12 +35,12 @@ func Parse() (*Config, error) {
 
 	switch cfg.Mode {
 	case ModeMaster:
-		return cfg, nil
-	case ModeSlave:
 		if cfg.SlaveAddr == "" {
 			return nil, fmt.Errorf("env key %q is empty or not provided", envKeySlaveAddr)
 		}
 
+		return cfg, nil
+	case ModeSlave:
 		return cfg, nil
 	default:
 		return nil, fmt.Errorf("invalid value in env key %q, got: %s", envKeyMode, cfg.Mode)

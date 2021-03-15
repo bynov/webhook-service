@@ -36,7 +36,7 @@ func (p PostgresRepository) SaveBatch(ctx context.Context, webhooks []domain.Web
 			)
 			SELECT
 				unnest($1::varchar[]),
-				unnest($2::char[]),
+				unnest($2::char(40)[]),
 				unnest($3::timestamp[])`,
 		batch.payloads,
 		batch.payloadHashes,
