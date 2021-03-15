@@ -77,7 +77,6 @@ func (b *Batch) Flush() error {
 
 	b.dataMutex.Unlock()
 
-	// TODO: err & context
 	return b.webhookRepo.SaveBatch(context.Background(), data)
 }
 
