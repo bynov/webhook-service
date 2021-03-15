@@ -85,5 +85,8 @@ func (b *Batch) Errors() <-chan error {
 }
 
 func (b *Batch) flush(ctx context.Context) error {
-	return b.webhookRepo.SaveBatch(ctx, b.data)
+	err := b.webhookRepo.SaveBatch(ctx, b.data)
+	b.data = b.data[:0]
+
+	return err
 }
