@@ -6,8 +6,9 @@ import (
 )
 
 const (
-	envKeyMode      = "MODE"
-	envKeySlaveAddr = "SLAVE_ADDR"
+	envKeyMode         = "MODE"
+	envKeySlaveAddr    = "SLAVE_ADDR"
+	envKeyDatabaseAddr = "DATABASE_ADDR"
 )
 
 const (
@@ -16,8 +17,9 @@ const (
 )
 
 type Config struct {
-	Mode      string
-	SlaveAddr string
+	Mode         string
+	SlaveAddr    string
+	DatabaseAddr string
 }
 
 func (c Config) IsMaster() bool {
@@ -25,25 +27,22 @@ func (c Config) IsMaster() bool {
 }
 
 func Parse() (*Config, error) {
-	mode := os.Getenv(envKeyMode)
+	var cfg = &Config{
+		Mode:         os.Getenv(envKeyMode),
+		DatabaseAddr: os.Getenv(envKeyDatabaseAddr),
+		SlaveAddr:    os.Getenv(envKeySlaveAddr),
+	}
 
-	switch mode {
+	switch cfg.Mode {
 	case ModeMaster:
-		return &Config{
-			Mode: mode,
-		}, nil
+		return cfg, nil
 	case ModeSlave:
-		slaveAddr := os.Getenv(envKeySlaveAddr)
-
-		if slaveAddr == "" {
+		if cfg.SlaveAddr == "" {
 			return nil, fmt.Errorf("env key %q is empty or not provided", envKeySlaveAddr)
 		}
 
-		return &Config{
-			Mode:      mode,
-			SlaveAddr: slaveAddr,
-		}, nil
+		return cfg, nil
 	default:
-		return nil, fmt.Errorf("invalid value in env key %q, got: %s", envKeyMode, mode)
+		return nil, fmt.Errorf("invalid value in env key %q, got: %s", envKeyMode, cfg.Mode)
 	}
 }
